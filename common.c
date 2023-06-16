@@ -5,6 +5,40 @@
 
 #include <arpa/inet.h>
 
+//definir comandos de controle e comunicação (enum, struct...)
+
+//se request for REQ_ADD
+    //vê se número de user já chegou no limite 
+        //ERROR 01
+    //se não
+        //atribui id pro user e regitra na base(!), printa mensagem de confirmaçõ na tela
+        //e avisa todos os users cadastrados sobre o novo user
+        //(ver restante dessa parte dps)
+//se request for de REQ_REM
+    //vê se user existe na base
+        //remove user da base e desconecta ele
+        //avisa outros users para fazerem o mesmo
+    //se não
+        //ERROR 02
+
+//-> mensagem privada
+//se request for msg para outro user
+    //server verifica se user existe na bse
+        //user printa a propria mensagem e horário, além de P de mensagem privada
+        //server manda msg para o outro user em questão, que imprime
+    //se não
+        //ERROR 03
+//-> mensagem publica
+//se request for de msg para outro user (que toda a rede possa ver)
+    //server printa e envia para todos
+    //os outros users printam a msg e infos
+
+//commands:
+//close connection
+//list users
+//send to user
+//send all
+
 void logexit(const char *msg) {
 	perror(msg);
 	exit(EXIT_FAILURE);
