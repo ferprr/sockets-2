@@ -9,31 +9,47 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-void usage(int argc, char **argv) {
+#define BUFSZ 1024
+
+// especificação das mensagens
+struct control_command
+{
+	int idmsg;
+	int idsender;
+	int users_list[15];
+};
+
+struct communication_command
+{
+	int idmsg;
+	int idsender;
+	int idreceiver;
+	char message[BUFSZ];
+};
+
+void usage(int argc, char **argv)
+{
 	printf("usage: %s <server IP> <server port>\n", argv[0]);
 	printf("example: %s 127.0.0.1 51511\n", argv[0]);
 	exit(EXIT_FAILURE);
 }
 
-#define BUFSZ 1024
-
-int main(int argc, char **argv) {
-	if (argc < 3) {
-		usage(argc, argv);
-	}
-
+void socket_connection(int *s, int argc, char **argv)
+{
 	struct sockaddr_storage storage;
-	if (0 != addrparse(argv[1], argv[2], &storage)) {
+	if (0 != addrparse(argv[1], argv[2], &storage))
+	{
 		usage(argc, argv);
 	}
 
-	int s;
-	s = socket(storage.ss_family, SOCK_STREAM, 0);
-	if (s == -1) {
+	*s = socket(storage.ss_family, SOCK_STREAM, 0);
+	if (*s == -1)
+	{
 		logexit("socket");
 	}
 	struct sockaddr *addr = (struct sockaddr *)(&storage);
-	if (0 != connect(s, addr, sizeof(storage))) {
+	if (0 != connect(*s, addr, sizeof(storage)))
+	{
 		logexit("connect");
 	}
 
@@ -41,21 +57,29 @@ int main(int argc, char **argv) {
 	addrtostr(addr, addrstr, BUFSZ);
 
 	printf("connected to %s\n", addrstr);
+}
 
-	char buf[BUFSZ];
+void send_msg(int s, char *buf)
+{
 	memset(buf, 0, BUFSZ);
 	printf("mensagem> ");
-	fgets(buf, BUFSZ-1, stdin);
-	size_t count = send(s, buf, strlen(buf)+1, 0);
-	if (count != strlen(buf)+1) {
+	fgets(buf, BUFSZ - 1, stdin);
+	size_t count = send(s, buf, strlen(buf) + 1, 0);
+	if (count != strlen(buf) + 1)
+	{
 		logexit("send");
 	}
+}
 
+void handle_server_msg(int s, char *buf)
+{
 	memset(buf, 0, BUFSZ);
 	unsigned total = 0;
-	while(1) {
-		count = recv(s, buf + total, BUFSZ - total, 0);
-		if (count == 0) {
+	while (1)
+	{
+		size_t count = recv(s, buf + total, BUFSZ - total, 0);
+		if (count == 0)
+		{
 			// Connection terminated.
 			break;
 		}
@@ -65,6 +89,23 @@ int main(int argc, char **argv) {
 
 	printf("received %u bytes\n", total);
 	puts(buf);
+}
+
+int main(int argc, char **argv)
+{
+	if (argc < 3)
+	{
+		usage(argc, argv);
+	}
+
+	int s = -1;
+	char buf[BUFSZ];
+
+	socket_connection(&s, argc, argv);
+
+	send_msg(s, buf);
+
+	handle_server_msg(s, buf);
 
 	exit(EXIT_SUCCESS);
 }

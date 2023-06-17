@@ -5,7 +5,7 @@
 
 #include <arpa/inet.h>
 
-//definir comandos de controle e comunicação (enum, struct...)
+//fluxo das mensagens de controle
 
 //se request for REQ_ADD
     //vê se número de user já chegou no limite 

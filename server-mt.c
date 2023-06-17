@@ -17,6 +17,7 @@ void usage(int argc, char **argv) {
     exit(EXIT_FAILURE);
 }
 
+// Structure to hold client information
 struct client_data {
     int csock;
     struct sockaddr_storage storage;
@@ -45,46 +46,44 @@ void * client_thread(void *data) {
     pthread_exit(EXIT_SUCCESS);
 }
 
-int main(int argc, char **argv) {
-    if (argc < 3) {
-        usage(argc, argv);
-    }
+void server_config(int *s, int argc, char* *argv) {
 
     struct sockaddr_storage storage;
     if (0 != server_sockaddr_init(argv[1], argv[2], &storage)) {
         usage(argc, argv);
     }
 
-    int s;
-    s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if (s == -1) {
+    *s = socket(storage.ss_family, SOCK_STREAM, 0);
+    if (*s == -1) {
         logexit("socket");
     }
 
     int enable = 1;
-    if (0 != setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) {
+    if (0 != setsockopt(*s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int))) {
         logexit("setsockopt");
     }
 
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if (0 != bind(s, addr, sizeof(storage))) {
+    if (0 != bind(*s, addr, sizeof(storage))) {
         logexit("bind");
     }
 
-    if (0 != listen(s, 10)) {
+    if (0 != listen(*s, 10)) {
         logexit("listen");
     }
 
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ);
     printf("bound to %s, waiting connections\n", addrstr);
+}
 
+void accept_connection(int *s) {
     while (1) {
         struct sockaddr_storage cstorage;
         struct sockaddr *caddr = (struct sockaddr *)(&cstorage);
         socklen_t caddrlen = sizeof(cstorage);
 
-        int csock = accept(s, caddr, &caddrlen);
+        int csock = accept(*s, caddr, &caddrlen);
         if (csock == -1) {
             logexit("accept");
         }
@@ -99,6 +98,17 @@ int main(int argc, char **argv) {
         pthread_t tid;
         pthread_create(&tid, NULL, client_thread, cdata);
     }
+}
+
+int main(int argc, char **argv) {
+    if (argc < 3) {
+        usage(argc, argv);
+    }
+
+    int s = -1;
+    server_config(&s, argc, argv);
+
+    accept_connection(&s);
 
     exit(EXIT_SUCCESS);
 }
