@@ -11,22 +11,6 @@
 
 #define BUFSZ 1024
 
-// especificação das mensagens
-struct control_command
-{
-	int idmsg;
-	int idsender;
-	int users_list[15];
-};
-
-struct communication_command
-{
-	int idmsg;
-	int idsender;
-	int idreceiver;
-	char message[BUFSZ];
-};
-
 void usage(int argc, char **argv)
 {
 	printf("usage: %s <server IP> <server port>\n", argv[0]);
@@ -103,9 +87,12 @@ int main(int argc, char **argv)
 
 	socket_connection(&s, argc, argv);
 
-	send_msg(s, buf);
+	while (1)
+	{
+		handle_server_msg(s, buf);
+	}
 
-	handle_server_msg(s, buf);
+	// send_msg(s, buf);
 
 	exit(EXIT_SUCCESS);
 }
