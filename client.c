@@ -27,15 +27,10 @@ void socket_connection(int *s, int argc, char **argv)
 	}
 
 	*s = socket(storage.ss_family, SOCK_STREAM, 0);
-	if (*s == -1)
-	{
-		logexit("socket");
-	}
+	check(*s, "socket creation failed");
+
 	struct sockaddr *addr = (struct sockaddr *)(&storage);
-	if (0 != connect(*s, addr, sizeof(storage)))
-	{
-		logexit("connect");
-	}
+	check(connect(*s, addr, sizeof(storage)), "connect failed");
 
 	char addrstr[BUFSZ];
 	addrtostr(addr, addrstr, BUFSZ);

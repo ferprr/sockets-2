@@ -4,6 +4,8 @@
 
 #include <arpa/inet.h>
 
+int check(int ret, const char *msg);
+
 void logexit(const char *msg);
 
 int addrparse(const char *addrstr, const char *portstr,

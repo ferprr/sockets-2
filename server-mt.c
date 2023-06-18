@@ -9,15 +9,23 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define MAX_CLIENTS 15
+#define MAX_CLIENTS 0
 #define BUFSZ 1024
+
+// Structure to hold client information
+struct client_data
+{
+    int uid;
+    int csock;
+    struct sockaddr_storage storage;
+};
 
 // especificação das mensagens
 struct control_command
 {
     int idmsg;
     int idsender;
-    int users_list[15];
+    struct client_data *users_list[15];
 };
 
 struct communication_command
@@ -26,14 +34,6 @@ struct communication_command
     int idsender;
     int idreceiver;
     char message[BUFSZ];
-};
-
-// Structure to hold client information
-struct client_data
-{
-    int uid;
-    int csock;
-    struct sockaddr_storage storage;
 };
 
 int clients[MAX_CLIENTS];                                  // Array to hold client connections
@@ -57,6 +57,26 @@ void broadcast_msg(char *buf)
     pthread_mutex_unlock(&clients_mutex);
 }
 
+int check_user_limit(char *buf, int sock)
+{
+
+    if (users_count > MAX_CLIENTS)
+    {
+        // printf("User limit exceeded.\n");
+        strcat(buf, "User limit exceeded\n");
+        int count = send(sock, buf, strlen(buf) + 1, 0);
+        if (count != strlen(buf) + 1)
+        {
+            logexit("send");
+        }
+        close(sock);
+        pthread_mutex_unlock(&clients_mutex);
+
+        return -1;
+    }
+
+    return 0;
+}
 void *client_thread(void *data)
 {
     char buf[BUFSZ];
@@ -69,23 +89,18 @@ void *client_thread(void *data)
     addrtostr(caddr, caddrstr, BUFSZ);
     // printf("[log] connection from %s\n", caddrstr);
 
-    // Add the client socket to the array
+    // Check user limit
     pthread_mutex_lock(&clients_mutex);
-    if (users_count > MAX_CLIENTS)
+
+    int limit_exceeded = check_user_limit(buf, cdata->csock);
+    if (limit_exceeded == -1)
     {
-        // printf("User limit exceeded.\n");
-        strcat(buf, "User limit exceeded\n");
-        int count = send(cdata->csock, buf, strlen(buf) + 1, 0);
-        if (count != strlen(buf) + 1)
-        {
-            logexit("send");
-        }
-        close(cdata->csock);
-        pthread_mutex_unlock(&clients_mutex);
+        printf("User limit exceeded\n");
         return NULL;
     }
 
-    clients[users_count++] = cdata->csock;
+    clients[users_count] = cdata->csock;
+    users_count++;
     pthread_mutex_unlock(&clients_mutex);
 
     printf("User %d added\n", users_count);
@@ -95,31 +110,9 @@ void *client_thread(void *data)
     strcat(buf, user_id);
     strcat(buf, " joined the group");
 
-    // for (int i = 0; i <= users_count; i++)
-    // {
-    //     printf("%d: %d", i, clients[i]->csock);
-    // }
-
     // Broadcast the received message to all connected clients
     broadcast_msg(buf);
 
-    // int count = send(cdata->csock, buf, strlen(buf) + 1, 0);
-    // if (count != strlen(buf) + 1)
-    // {
-    //     logexit("send");
-    // }
-
-    // char buf[BUFSZ];
-    // memset(buf, 0, BUFSZ);
-    // size_t count = recv(cdata->csock, buf, BUFSZ - 1, 0);
-    // printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, buf);
-
-    // sprintf(buf, "remote endpoint: %.1000s\n", caddrstr);
-    // count = send(cdata->csock, buf, strlen(buf) + 1, 0);
-    // if (count != strlen(buf) + 1)
-    // {
-    //     logexit("send");
-    // }
     close(cdata->csock);
 
     pthread_exit(EXIT_SUCCESS);
@@ -135,27 +128,15 @@ void server_config(int *s, int argc, char **argv)
     }
 
     *s = socket(storage.ss_family, SOCK_STREAM, 0);
-    if (*s == -1)
-    {
-        logexit("socket");
-    }
+    check(*s, "socket creation failed");
 
     int enable = 1;
-    if (0 != setsockopt(*s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)))
-    {
-        logexit("setsockopt");
-    }
+    check(setsockopt(*s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)), "setsockopt failed");
 
     struct sockaddr *addr = (struct sockaddr *)(&storage);
-    if (0 != bind(*s, addr, sizeof(storage)))
-    {
-        logexit("bind");
-    }
+    check(bind(*s, addr, sizeof(storage)), "bind failed");
 
-    if (0 != listen(*s, 10))
-    {
-        logexit("listen");
-    }
+    check(listen(*s, 10), "listen failed");
 
     char addrstr[BUFSZ];
     addrtostr(addr, addrstr, BUFSZ);
