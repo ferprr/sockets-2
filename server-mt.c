@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define MAX_CLIENTS 0
+#define MAX_CLIENTS 14
 #define BUFSZ 1024
 
 // // Structure to hold client information
@@ -102,6 +102,19 @@ int check_user_limit(char *buf, int sock)
     return 0;
 }
 
+void user_entries(char buf, int uid)
+{
+    char bufferAux[BUFSZ];
+    memset(bufferAux, 0, BUFSZ);
+    strcpy(bufferAux, buf);
+    strtok(bufferAux, " "); // Pegando o primeiro trecho da entrada para depois verificar se é um caso de requisição de informação
+
+    if (strcmp(buf, "list users\n") == 0)
+        printf("LISTING USERS...");
+    else if (strcmp(buf, "close connection\n") == 0)
+        printf("CLOSING CONNECTION...");
+}
+
 void *client_thread(void *data)
 {
     char buf[BUFSZ];
@@ -125,9 +138,13 @@ void *client_thread(void *data)
         pthread_exit(EXIT_SUCCESS);
     }
 
-    clients[users_count] = cdata->uid;
+    // users_list[users_count].uid = users_count;
+
+    // clients[users_count] = cdata->uid;
     clients[users_count] = cdata->csock;
     users_count++;
+    // array de * de cdata?
+    // ao remover um client, para adicionar outro, como faço pra iterar sobre o id? o novo recebe o valor mais alto + 1?
     pthread_mutex_unlock(&clients_mutex);
 
     printf("User 0%d added\n", users_count);
@@ -139,6 +156,20 @@ void *client_thread(void *data)
 
     // Broadcast the received message to all connected clients
     broadcast_msg(buf);
+
+    while (1)
+    {
+        printf("entra aqui?");
+        memset(buf, 0, BUFSZ);
+        recv(cdata->csock, buf, BUFSZ - 1, 0);
+        user_entries(buf, users_count);
+
+        int numBytes = send(cdata->csock, buf, strlen(buf) + 1, 0);
+        if (numBytes != strlen(buf) + 1)
+        {
+            logexit("send");
+        }
+    }
 
     close(cdata->csock);
     pthread_exit(EXIT_SUCCESS);
