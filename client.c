@@ -63,7 +63,7 @@ void handle_server_msg(int s, char *buf)
 	// }
 	// total += count;
 
-	close(s);
+	// close(s);
 
 	printf("received %u bytes\n", count);
 	puts(buf);
@@ -71,7 +71,6 @@ void handle_server_msg(int s, char *buf)
 
 void *receive_msg(void *data)
 {
-	printf("entra aqui?");
 	struct client_data *cdata = (struct client_data *)data;
 
 	char buf[BUFSZ];
@@ -83,12 +82,12 @@ void *receive_msg(void *data)
 
 		if (strlen(buf) != 0)
 		{
-			printf("Response was %s\n ", buf);
+			puts(buf);
 			// chama função de acordo com o que recebeu
 		}
 	}
 
-	exit(EXIT_SUCCESS);
+	// exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
