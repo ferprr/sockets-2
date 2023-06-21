@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define MAX_CLIENTS 15
+#define MAX_CLIENTS 0
 #define BUFSZ 1024
 
 // // Structure to hold client information
@@ -94,7 +94,6 @@ int check_user_limit(char *buf, int sock)
         {
             logexit("send");
         }
-        close(sock);
         pthread_mutex_unlock(&clients_mutex);
 
         return -1;
@@ -122,7 +121,8 @@ void *client_thread(void *data)
     if (limit_exceeded == -1)
     {
         printf("User limit exceeded\n");
-        return NULL;
+        close(cdata->csock);
+        pthread_exit(EXIT_SUCCESS);
     }
 
     clients[users_count] = cdata->uid;
@@ -140,8 +140,7 @@ void *client_thread(void *data)
     // Broadcast the received message to all connected clients
     broadcast_msg(buf);
 
-    // close(cdata->csock);
-
+    close(cdata->csock);
     pthread_exit(EXIT_SUCCESS);
 }
 
