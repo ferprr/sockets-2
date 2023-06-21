@@ -9,16 +9,16 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define MAX_CLIENTS 0
+#define MAX_CLIENTS 15
 #define BUFSZ 1024
 
-// Structure to hold client information
-struct client_data
-{
-    int uid;
-    int csock;
-    struct sockaddr_storage storage;
-};
+// // Structure to hold client information
+// struct client_data
+// {
+//     int uid;
+//     int csock;
+//     struct sockaddr_storage storage;
+// };
 
 // especificação das mensagens
 struct control_command
@@ -45,6 +45,31 @@ void usage(int argc, char **argv)
     printf("usage: %s <v4|v6> <server port>\n", argv[0]);
     printf("example: %s v4 51511\n", argv[0]);
     exit(EXIT_FAILURE);
+}
+
+void server_config(int *s, int argc, char **argv)
+{
+
+    struct sockaddr_storage storage;
+    if (0 != server_sockaddr_init(argv[1], argv[2], &storage))
+    {
+        usage(argc, argv);
+    }
+
+    *s = socket(storage.ss_family, SOCK_STREAM, 0);
+    check(*s, "socket creation failed");
+
+    int enable = 1;
+    check(setsockopt(*s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)), "setsockopt failed");
+
+    struct sockaddr *addr = (struct sockaddr *)(&storage);
+    check(bind(*s, addr, sizeof(storage)), "bind failed");
+
+    check(listen(*s, 10), "listen failed");
+
+    char addrstr[BUFSZ];
+    addrtostr(addr, addrstr, BUFSZ);
+    printf("bound to %s, waiting connections\n", addrstr);
 }
 
 void broadcast_msg(char *buf)
@@ -77,6 +102,7 @@ int check_user_limit(char *buf, int sock)
 
     return 0;
 }
+
 void *client_thread(void *data)
 {
     char buf[BUFSZ];
@@ -99,48 +125,24 @@ void *client_thread(void *data)
         return NULL;
     }
 
+    clients[users_count] = cdata->uid;
     clients[users_count] = cdata->csock;
     users_count++;
     pthread_mutex_unlock(&clients_mutex);
 
-    printf("User %d added\n", users_count);
+    printf("User 0%d added\n", users_count);
     char user_id[2];
     sprintf(user_id, "%d", users_count);
-    strcat(buf, "User ");
+    strcat(buf, "User 0");
     strcat(buf, user_id);
     strcat(buf, " joined the group");
 
     // Broadcast the received message to all connected clients
     broadcast_msg(buf);
 
-    close(cdata->csock);
+    // close(cdata->csock);
 
     pthread_exit(EXIT_SUCCESS);
-}
-
-void server_config(int *s, int argc, char **argv)
-{
-
-    struct sockaddr_storage storage;
-    if (0 != server_sockaddr_init(argv[1], argv[2], &storage))
-    {
-        usage(argc, argv);
-    }
-
-    *s = socket(storage.ss_family, SOCK_STREAM, 0);
-    check(*s, "socket creation failed");
-
-    int enable = 1;
-    check(setsockopt(*s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)), "setsockopt failed");
-
-    struct sockaddr *addr = (struct sockaddr *)(&storage);
-    check(bind(*s, addr, sizeof(storage)), "bind failed");
-
-    check(listen(*s, 10), "listen failed");
-
-    char addrstr[BUFSZ];
-    addrtostr(addr, addrstr, BUFSZ);
-    printf("bound to %s, waiting connections\n", addrstr);
 }
 
 void accept_connection(int *s)
@@ -153,10 +155,7 @@ void accept_connection(int *s)
         socklen_t caddrlen = sizeof(cstorage);
 
         int csock = accept(*s, caddr, &caddrlen);
-        if (csock == -1)
-        {
-            logexit("accept");
-        }
+        check(csock, "client socket creation failed");
 
         struct client_data *cdata = malloc(sizeof(*cdata));
         if (!cdata)

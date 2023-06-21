@@ -4,6 +4,14 @@
 
 #include <arpa/inet.h>
 
+// Structure to hold client information
+struct client_data
+{
+    int uid;
+    int csock;
+    struct sockaddr_storage storage;
+};
+
 int check(int ret, const char *msg);
 
 void logexit(const char *msg);

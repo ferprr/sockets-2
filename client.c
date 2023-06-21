@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <pthread.h>
+
 #define BUFSZ 1024
 
 void usage(int argc, char **argv)
@@ -41,7 +43,6 @@ void socket_connection(int *s, int argc, char **argv)
 void send_msg(int s, char *buf)
 {
 	memset(buf, 0, BUFSZ);
-	printf("mensagem> ");
 	fgets(buf, BUFSZ - 1, stdin);
 	size_t count = send(s, buf, strlen(buf) + 1, 0);
 	if (count != strlen(buf) + 1)
@@ -54,20 +55,40 @@ void handle_server_msg(int s, char *buf)
 {
 	memset(buf, 0, BUFSZ);
 	unsigned total = 0;
-	while (1)
-	{
-		size_t count = recv(s, buf + total, BUFSZ - total, 0);
-		if (count == 0)
-		{
-			// Connection terminated.
-			break;
-		}
-		total += count;
-	}
+	size_t count = recv(s, buf + total, BUFSZ - total, 0);
+	// if (count == 0)
+	// {
+	// 	// Connection terminated.
+	// 	break;
+	// }
+	// total += count;
+
 	close(s);
 
-	printf("received %u bytes\n", total);
+	printf("received %u bytes\n", count);
 	puts(buf);
+}
+
+void *receive_msg(void *data)
+{
+	printf("entra aqui?");
+	struct client_data *cdata = (struct client_data *)data;
+
+	char buf[BUFSZ];
+
+	while (1)
+	{
+		memset(buf, 0, BUFSZ);
+		recv(cdata->csock, buf, BUFSZ + 1, 0);
+
+		if (strlen(buf) != 0)
+		{
+			printf("Response was %s\n ", buf);
+			// chama função de acordo com o que recebeu
+		}
+	}
+
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -82,12 +103,23 @@ int main(int argc, char **argv)
 
 	socket_connection(&s, argc, argv);
 
+	handle_server_msg(s, buf);
+
 	while (1)
 	{
-		handle_server_msg(s, buf);
+		struct client_data *cdata = malloc(sizeof(*cdata));
+		cdata->csock = s;
+
+		pthread_t id;
+		pthread_create(&id, NULL, receive_msg, cdata);
+
+		send_msg(s, buf);
 	}
 
-	// send_msg(s, buf);
+	// while (1)
+	// {
+	// 	handle_server_msg(s, buf);
+	// }
 
 	exit(EXIT_SUCCESS);
 }
